@@ -1,0 +1,29 @@
+<html>
+	<head>
+		<script src="lib/jQuery/jQuery-2.2.0.min.js"></script>
+	</head>
+	<body>
+		<button type="button" class="btn btn-primary btn-block btn-flat" onclick="action()">Punch It...</button>
+	</body>
+</html>
+<script>
+	action = function(){
+		//alert('dink');
+		$.ajax({
+			method: "GET",
+			url: "http://localhost:8080/books/available",
+			//url: "http://localhost:8090/available",
+			headers: {
+				Authorization: "Bearer 123"
+			}
+		}).done(function(result){
+			console.log(JSON.stringify(result));
+			alert(JSON.stringify(result));
+		}).fail(function(result){
+			console.log(JSON.stringify(result));
+			alert(JSON.stringify(result));
+		}).always(function(){
+			console.log("finish");
+		})
+	}
+</script>
