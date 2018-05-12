@@ -45,60 +45,136 @@ public class SimpleFilter extends ZuulFilter {
 
   @Override
   public Object run() {
-    RequestContext ctx = RequestContext.getCurrentContext();
-    HttpServletRequest request = ctx.getRequest();
-	
-	String searchString = env.getProperty("gateway.searchstring");
-	
-    String tokenFrHeader = request.getHeader(searchString);
+	  
+	  //log.info("run filter");
+    //RequestContext ctx = RequestContext.getCurrentContext();
     
-    String tokenFrParam = request.getParameter(searchString);
+	//HttpServletRequest request = ctx.getRequest();
+	
+	//String searchString = env.getProperty("gateway.searchstring");
+	
+	//String tokenFrHeader = request.getHeader("Authorization");
+    
+    //if(tokenFrHeader == null){
+    //	log.info("empty header");
+    //}
+    
+    //String tokenFrParam = request.getParameter("Authorization");
 
-    String tokenFrCookies = getCookieValue(request.getCookies(), searchString);
+    //if(tokenFrParam == null || tokenFrParam.isEmpty()){
+    //	log.info("error param");
+    //}
+	
+    //String tokenFrCookies = getCookieValue(request.getCookies(), "Authorization");
+    
+    //if(tokenFrCookies == null){
+    //	log.info("empty cookies");
+    //}
     
     /*
      * sample to call other service
      * */
     
-    HttpHeaders headers = new HttpHeaders();
+    //HttpHeaders headers = new HttpHeaders();
     
-    headers.add(searchString, tokenFrParam);
+    //headers.add(searchString, tokenFrParam);
     
-    RestTemplate restTemplate = new RestTemplate();
+    //RestTemplate restTemplate = new RestTemplate();
     
-    String url = env.getProperty("gateway.authserver.url");
+    //String url = env.getProperty("gateway.authserver.url");
     
-    HttpEntity<String> entity = new HttpEntity<>(headers);
+    //HttpEntity<String> entity = new HttpEntity<>(headers);
 	
-	int timeout = Integer.parseInt(env.getProperty("gateway.authserver.timeout"));
+	//int timeout = Integer.parseInt(env.getProperty("gateway.authserver.timeout"));
 	
-	((SimpleClientHttpRequestFactory)restTemplate.getRequestFactory()).setConnectTimeout(timeout);
+	//((SimpleClientHttpRequestFactory)restTemplate.getRequestFactory()).setConnectTimeout(timeout);
     
-    ResponseEntity<Object> respEntity = restTemplate.exchange(url, HttpMethod.POST, entity, Object.class);
+    //ResponseEntity<Object> respEntity = restTemplate.exchange(url, HttpMethod.POST, entity, Object.class);
     
-    if(respEntity.getStatusCode() == HttpStatus.OK){
-    	log.info("get response");
-    }
-	else
-		setFailedRequest("UNAUTHORIZED", HttpStatus.UNAUTHORIZED.value());
+    //if(respEntity.getStatusCode() == HttpStatus.OK){
+    //	log.info("get response");
+    //}
+	//else
+	//	setFailedRequest("UNAUTHORIZED", HttpStatus.UNAUTHORIZED.value());
     
-    log.info(String.format("%s request to %s with token %s", request.getMethod(), request.getRequestURL().toString(), tokenFrHeader));
+    //log.info(String.format("%s request to %s with token %s", request.getMethod(), request.getRequestURL().toString(), tokenFrHeader));
 	
     /*
      * if not appropriate send response
      * */
-	if(tokenFrHeader.equals("nono"))
-		setFailedRequest("UNAUTHORIZED", HttpStatus.UNAUTHORIZED.value());
+	//if(tokenFrHeader.equals("nono"))
+	//	setFailedRequest("UNAUTHORIZED", HttpStatus.UNAUTHORIZED.value());
 
 	
-	HttpServletResponse response = ctx.getResponse();
+	//HttpServletResponse response = ctx.getResponse();
 	
-	Cookie cookie = new Cookie(searchString, tokenFrParam);
+	//Cookie cookie = new Cookie(searchString, tokenFrParam);
 	
-	response.addCookie(cookie);
+	//response.addCookie(cookie);
+	
+	log.info("run filter");
+    RequestContext ctx = RequestContext.getCurrentContext();
+    
+	HttpServletRequest request = ctx.getRequest();
+	
+	String searchString = env.getProperty("gateway.searchstring");
+	
+	String token = request.getParameter(searchString);
+    
+	if(token == null || token.isEmpty()){
+		
+		log.info("token not found on parameter");
+		
+    	token = getCookieValue(request.getCookies(), searchString);
+
+		log.info("result check on cookies");
+		if(token == null || token.isEmpty()){
+			log.info("token not found on cookies");
+			
+			setFailedRequest("UNAUTHORIZED", HttpStatus.UNAUTHORIZED.value());
+			
+			return null;
+		}
+    }
+	else{
+		HttpServletResponse response = ctx.getResponse();
+		Cookie cookie = new Cookie(searchString, token);
+		response.addCookie(cookie);
+	}
+	
+	log.info(String.format("%s request to %s with token %s", request.getMethod(), request.getRequestURL().toString(), token));
+	
+	if(!getAuth(token)){
+		setFailedRequest("UNAUTHORIZED", HttpStatus.UNAUTHORIZED.value());
+	}
 	
     return null;
   }
+  
+  private boolean getAuth(String token){
+	  HttpHeaders headers = new HttpHeaders();
+	    
+	    headers.add("Authorization", token);
+	    
+	    RestTemplate restTemplate = new RestTemplate();
+	    
+	    String url = env.getProperty("gateway.authserver.url");
+	    
+	    HttpEntity<String> entity = new HttpEntity<>(headers);
+		
+		int iTimeout = Integer.parseInt(env.getProperty("gateway.authserver.timeout"));
+	    
+	    ((SimpleClientHttpRequestFactory)restTemplate.getRequestFactory()).setConnectTimeout(iTimeout);
+	    
+	    ResponseEntity<Object> respEntity = restTemplate.exchange(url, HttpMethod.POST, entity, Object.class);
+	    
+	    if(respEntity.getStatusCode() == HttpStatus.OK){
+	    	return true;
+	    }
+	    
+	    return false;
+  }
+  
   
 	private void setFailedRequest(String body, int code) {
 		log.debug("Reporting error ({}): {}", code, body);
@@ -111,9 +187,11 @@ public class SimpleFilter extends ZuulFilter {
 	}
 	
 	private String getCookieValue(Cookie[] kukies, String Name){
-		for (Cookie cookie : kukies){
-			if(Name.equals(cookie.getName())){
-				return cookie.getValue();
+		if(kukies != null){		
+			for (Cookie cookie : kukies){
+				if(Name.equals(cookie.getName())){
+					return cookie.getValue();
+				}
 			}
 		}
 		
